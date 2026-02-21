@@ -23,44 +23,25 @@ st.set_page_config(
 )
 
 # ===============================
-# CUSTOM CSS (Dark/Light theme support)
+# CUSTOM CSS (Light theme)
 # ===============================
 
-def apply_theme(dark_mode):
-    if dark_mode:
-        css = """
-        <style>
-        .stApp { background-color: #1a1a2e; color: #eaeaea; }
-        .stSidebar { background-color: #16213e; }
-        .stChatMessage { background-color: #0f3460; border-radius: 10px; }
-        .metric-box { background: #16213e; border-radius: 10px; padding: 15px; margin: 5px; }
-        .affirmation-box { background: linear-gradient(135deg, #0f3460, #533483); 
-                           border-radius: 15px; padding: 20px; text-align: center; 
-                           font-size: 1.2em; margin: 10px 0; }
-        .grounding-card { background: #16213e; border-left: 4px solid #e94560; 
-                          border-radius: 8px; padding: 15px; margin: 10px 0; }
-        .quote-box { background: #0f3460; border-radius: 12px; padding: 20px; 
-                     font-style: italic; text-align: center; margin: 10px 0; }
-        </style>
-        """
-    else:
-        css = """
-        <style>
-        .stApp { background-color: #f8f9fa; color: #212529; }
-        .metric-box { background: white; border-radius: 10px; padding: 15px; 
-                      margin: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .affirmation-box { background: linear-gradient(135deg, #667eea, #764ba2); 
-                           border-radius: 15px; padding: 20px; text-align: center; 
-                           font-size: 1.2em; color: white; margin: 10px 0; }
-        .grounding-card { background: white; border-left: 4px solid #667eea; 
-                          border-radius: 8px; padding: 15px; margin: 10px 0;
-                          box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .quote-box { background: linear-gradient(135deg, #f093fb, #f5576c); 
-                     border-radius: 12px; padding: 20px; font-style: italic; 
-                     text-align: center; color: white; margin: 10px 0; }
-        </style>
-        """
-    st.markdown(css, unsafe_allow_html=True)
+st.markdown("""
+<style>
+.stApp { background-color: #f8f9fa; color: #212529; }
+.metric-box { background: white; border-radius: 10px; padding: 15px; 
+              margin: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.affirmation-box { background: linear-gradient(135deg, #667eea, #764ba2); 
+                   border-radius: 15px; padding: 20px; text-align: center; 
+                   font-size: 1.2em; color: white; margin: 10px 0; }
+.grounding-card { background: white; border-left: 4px solid #667eea; 
+                  border-radius: 8px; padding: 15px; margin: 10px 0;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.quote-box { background: linear-gradient(135deg, #f093fb, #f5576c); 
+             border-radius: 12px; padding: 20px; font-style: italic; 
+             text-align: center; color: white; margin: 10px 0; }
+</style>
+""", unsafe_allow_html=True)
 
 # ===============================
 # LOAD GROQ API KEY
@@ -85,7 +66,6 @@ defaults = {
     "streak": 0,
     "username": "",
     "onboarded": False,
-    "dark_mode": False,
     "writing_streak": 0,
     "last_journal_date": None,
     "affirmation_of_day": None,
@@ -95,12 +75,6 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
-# ===============================
-# THEME
-# ===============================
-
-apply_theme(st.session_state.dark_mode)
 
 # ===============================
 # ONBOARDING
@@ -122,7 +96,7 @@ if not st.session_state.onboarded:
         - 🙏 **Gratitude log** for daily positivity
         
         > ⚠️ This is **not** a replacement for licensed mental health care.  
-        > In a crisis, please contact **988** (US) or your local emergency services.
+        > In a crisis, please contact your local emergency services.
         """)
         name = st.text_input("What should I call you?", placeholder="Enter your name...")
         if st.button("✨ Let's Begin", type="primary"):
@@ -175,12 +149,6 @@ with st.sidebar:
         "🧘 Wellness Tools",
         "ℹ About"
     ])
-    
-    st.markdown("---")
-    dark = st.toggle("🌙 Dark Mode", value=st.session_state.dark_mode)
-    if dark != st.session_state.dark_mode:
-        st.session_state.dark_mode = dark
-        st.rerun()
 
 # ===============================
 # CRISIS DETECTION
@@ -413,7 +381,7 @@ if page == "🏠 Home":
 
 elif page == "💬 Chat":
     st.title("💬 AI Mental Health Companion")
-    st.warning("⚠️ This is not a licensed therapist. In crisis, contact emergency services or call/text **988**.")
+    st.warning("⚠️ This is not a licensed therapist. In crisis, contact emergency services.")
     
     # Suggested prompts when chat is empty
     if not st.session_state.chat_history:
@@ -455,8 +423,7 @@ elif page == "💬 Chat":
             st.error("""
 🚨 **If you're in immediate danger, please reach out:**
 
-- 🇺🇸 Call or text **988** (Suicide & Crisis Lifeline)
-- 🇬🇧 Samaritans: **116 123**
+- 🇺🇸 Suicide & Crisis Lifeline
 - 🌍 Or contact local emergency services
 
 You are not alone. Help is available. 💙
@@ -917,7 +884,7 @@ elif page == "ℹ About":
     
     ---
     > ⚠️ **Disclaimer:** This system is for supportive guidance only. It does **not** replace professional mental health care.  
-    > If you are in crisis, please call or text **988** (US) or contact your local emergency services.
+    > If you are in crisis, please contact your local emergency services.
     """)
 
 # ===============================
