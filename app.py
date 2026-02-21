@@ -1,24 +1,23 @@
-import os
 import matplotlib
 matplotlib.use("Agg")
 
 import streamlit as st
-import requests
 import matplotlib.pyplot as plt
 from datetime import datetime
-
+from huggingface_hub import InferenceClient
+import time
 
 # ===============================
-# LOAD ENV VARIABLES
+# LOAD TOKEN
 # ===============================
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-API_URL = "https://router.huggingface.co/hf-inference/models/google/flan-t5-small"
-
-headers = {
-    "Authorization": f"Bearer {HF_TOKEN}"
-}
+# Initialize HuggingFace client
+client = InferenceClient(
+    model="HuggingFaceH4/zephyr-7b-beta",  # Stable chat model
+    token=HF_TOKEN
+)
 
 # ===============================
 # PAGE CONFIG
@@ -69,7 +68,7 @@ def detect_emotion(text):
         return "Anger", -1
     elif any(word in text for word in ["tired", "burnout", "exhausted", "drained"]):
         return "Burnout", -1
-    elif any(word in text for word in ["happy", "excited", "grateful", "good", "great", "awesome"]):
+    elif any(word in text for word in ["happy", "excited", "grateful", "great", "awesome"]):
         return "Positive", 1
     else:
         return "Neutral", 0
@@ -100,39 +99,27 @@ You are a compassionate AI mental health support assistant.
 The user is experiencing {emotion}.
 Respond with empathy, validation, and gentle encouragement.
 Keep response under 120 words.
-
-User: {user_message}
-Assistant:
 """
 
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 200,
-            "temperature": 0.7,
-            "return_full_text": False
-        }
-    }
+    messages = [
+        {"role": "system", "content": "You are a compassionate mental health assistant."},
+        {"role": "user", "content": f"{prompt}\nUser: {user_message}"}
+    ]
 
-    try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        st.write("DEBUG STATUS:", response.status_code)
-        st.write("DEBUG RESPONSE:", response.text)
-        if response.status_code != 200:
-            return f"API Error: {response.status_code}"
+    for _ in range(2):  # retry once if model busy
+        try:
+            response = client.chat_completion(
+                messages=messages,
+                max_tokens=200,
+                temperature=0.7
+            )
 
-        result = response.json()
+            return response.choices[0].message.content.strip()
 
-        if "error" in result:
-            return f"Model Error: {result['error']}"
+        except Exception:
+            time.sleep(3)
 
-        if isinstance(result, list):
-            return result[0]["generated_text"].strip()
-
-        return "Unexpected API response."
-
-    except Exception as e:
-        return f"Connection error: {str(e)}"
+    return "Model is currently busy. Please try again in a moment."
 
 # ===============================
 # CHAT PAGE
@@ -152,7 +139,13 @@ if page == "💬 Chat":
     if user_input:
 
         if safety_check(user_input):
-            st.error("🚨 If you're in immediate danger, contact a suicide prevention hotline immediately.")
+            st.error("""
+🚨 If you're in immediate danger:
+
+• 🇺🇸 Call or text 988  
+• 🇬🇧 Samaritans: 116 123  
+• Or contact local emergency services
+""")
         else:
             emotion, score = detect_emotion(user_input)
 
@@ -258,13 +251,8 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 ### Technologies Used:
 - Python
 - Streamlit
-- HuggingFace Inference API
+- HuggingFace (Zephyr-7B)
 - Matplotlib
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
-
-
-
-
-
