@@ -14,7 +14,7 @@ from datetime import datetime
 
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
+API_URL = "https://router.huggingface.co/hf-inference/models/google/flan-t5-small"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
@@ -263,6 +263,7 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
+
 
 
 
