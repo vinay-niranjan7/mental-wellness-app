@@ -48,26 +48,6 @@ with st.sidebar:
     page = st.radio("Navigate", ["💬 Chat", "📊 Analytics", "📔 Journal", "ℹ About"])
 
 # ===============================
-# EMOTION DETECTION
-# ===============================
-
-def detect_emotion(text):
-    text = text.lower()
-
-    if any(word in text for word in ["anxious", "nervous", "worried", "panic"]):
-        return "Anxiety", -1
-    elif any(word in text for word in ["sad", "depressed", "hopeless", "lonely"]):
-        return "Sadness", -1
-    elif any(word in text for word in ["angry", "mad", "frustrated", "irritated"]):
-        return "Anger", -1
-    elif any(word in text for word in ["tired", "burnout", "exhausted", "drained"]):
-        return "Burnout", -1
-    elif any(word in text for word in ["happy", "excited", "grateful", "great", "awesome", "good"]):
-        return "Positive", 1
-    else:
-        return "Neutral", 0
-
-# ===============================
 # CRISIS DETECTION
 # ===============================
 
@@ -83,24 +63,74 @@ def safety_check(text):
     return any(word in text.lower() for word in CRISIS_WORDS)
 
 # ===============================
-# AI RESPONSE GENERATION
+# AI EMOTION DETECTION (Context Aware)
 # ===============================
 
-def generate_response(user_message, emotion):
+def detect_emotion():
 
     try:
-        chat_completion = client.chat.completions.create(
+        recent_text = ""
+        for role, msg in st.session_state.chat_history[-6:]:
+            if role == "user":
+                recent_text += msg + "\n"
+
+        emotion_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a compassionate mental health support assistant. Provide empathetic, safe, and supportive responses."
+                    "content": "Based on the conversation, classify the user's overall emotional state into one of these categories only: Anxiety, Sadness, Anger, Burnout, Positive, Neutral. Respond with just one word."
                 },
                 {
                     "role": "user",
-                    "content": f"The user feels {emotion}. Respond with empathy under 120 words.\n\nUser: {user_message}"
+                    "content": recent_text
                 }
             ],
-            model="llama-3.1-8b-instant",  # Correct active model
+            model="llama-3.1-8b-instant",
+            temperature=0,
+            max_tokens=10,
+        )
+
+        emotion = emotion_completion.choices[0].message.content.strip()
+
+    except Exception:
+        emotion = "Neutral"
+
+    score_map = {
+        "Anxiety": -1,
+        "Sadness": -1,
+        "Anger": -1,
+        "Burnout": -1,
+        "Positive": 1,
+        "Neutral": 0
+    }
+
+    return emotion, score_map.get(emotion, 0)
+
+# ===============================
+# AI RESPONSE WITH MEMORY LIMIT
+# ===============================
+
+def generate_response():
+
+    try:
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a compassionate mental health support assistant. Provide empathetic, safe, and supportive responses."
+            }
+        ]
+
+        recent_history = st.session_state.chat_history[-20:]
+
+        for role, message in recent_history:
+            messages.append({
+                "role": role,
+                "content": message
+            })
+
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model="llama-3.1-8b-instant",
             temperature=0.7,
             max_tokens=200,
         )
@@ -109,6 +139,39 @@ def generate_response(user_message, emotion):
 
     except Exception:
         return "AI service is temporarily unavailable. Please try again."
+
+# ===============================
+# AI MOOD INSIGHT GENERATION
+# ===============================
+
+def generate_mood_insight():
+
+    if not st.session_state.mood_labels:
+        return "Not enough data yet."
+
+    try:
+        mood_text = ", ".join(st.session_state.mood_labels)
+
+        insight_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Analyze the user's mood trend and provide a short supportive insight in 2-3 sentences."
+                },
+                {
+                    "role": "user",
+                    "content": f"Mood history: {mood_text}"
+                }
+            ],
+            model="llama-3.1-8b-instant",
+            temperature=0.5,
+            max_tokens=100,
+        )
+
+        return insight_completion.choices[0].message.content
+
+    except Exception:
+        return "Mood insight unavailable."
 
 # ===============================
 # CHAT PAGE
@@ -136,15 +199,15 @@ if page == "💬 Chat":
 • Or contact local emergency services
 """)
         else:
-            emotion, score = detect_emotion(user_input)
+            st.session_state.chat_history.append(("user", user_input))
 
+            emotion, score = detect_emotion()
             st.session_state.mood_scores.append(score)
             st.session_state.mood_labels.append(emotion)
-            st.session_state.chat_history.append(("user", user_input))
 
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
-                    reply = generate_response(user_input, emotion)
+                    reply = generate_response()
                     st.write(reply)
 
             st.session_state.chat_history.append(("assistant", reply))
@@ -185,6 +248,10 @@ elif page == "📊 Analytics":
             autopct='%1.1f%%'
         )
         st.pyplot(fig2)
+
+        st.subheader("AI Mood Insight")
+        insight = generate_mood_insight()
+        st.info(insight)
 
 # ===============================
 # JOURNAL PAGE
@@ -227,21 +294,15 @@ elif page == "ℹ About":
     st.title("ℹ About This Project")
 
     st.write("""
-This AI Mental Wellness Companion was developed as part of an IBM Virtual Internship project.
+This AI Mental Wellness Companion integrates Llama 3.1 via Groq's free API to provide empathetic, context-aware support.
 
 ### Features:
-- AI-powered empathetic chatbot (Llama 3.1 via Groq)
-- Emotion detection
+- Context-aware conversational memory
+- AI-based emotion classification
 - Crisis keyword detection
 - Mood analytics dashboard
+- AI-generated mood insights
 - Personal journaling tool
-- Responsible AI disclaimer
-
-### Technologies Used:
-- Python
-- Streamlit
-- Groq API (Llama 3.1)
-- Matplotlib
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
