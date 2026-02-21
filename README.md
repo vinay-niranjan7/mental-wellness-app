@@ -2,6 +2,9 @@
 
 A Streamlit-based mental wellness web app powered by **Llama 3.1** via **Groq's API**. It provides empathetic AI chat support, mood tracking, journaling, gratitude logging, and guided wellness exercises — all in one place.
 
+# Access Here
+https://mental-wellness-app-3pggsbgy6xx2ivuozvaiuw.streamlit.app/
+
 > ⚠️ **Disclaimer:** This app is for supportive guidance only and is **not** a replacement for licensed mental health care. If you are in crisis, please contact your local emergency services or a mental health professional.
 
 ---
