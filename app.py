@@ -15,7 +15,7 @@ from datetime import datetime
 
 HF_TOKEN = "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"
 
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
@@ -263,5 +263,6 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
+
 
 
