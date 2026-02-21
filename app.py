@@ -93,7 +93,7 @@ def generate_response(user_message, emotion):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a compassionate mental health support assistant. Provide empathetic, supportive, and safe responses."
+                    "content": "You are a compassionate mental health support assistant."
                 },
                 {
                     "role": "user",
@@ -108,7 +108,7 @@ def generate_response(user_message, emotion):
         return chat_completion.choices[0].message.content
 
     except Exception as e:
-        return "AI service is temporarily unavailable. Please try again."
+        return f"ERROR DEBUG: {str(e)}"
 
 # ===============================
 # CHAT PAGE
@@ -245,3 +245,4 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
+
