@@ -93,22 +93,22 @@ def generate_response(user_message, emotion):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a compassionate mental health support assistant."
+                    "content": "You are a compassionate mental health support assistant. Provide empathetic, safe, and supportive responses."
                 },
                 {
                     "role": "user",
                     "content": f"The user feels {emotion}. Respond with empathy under 120 words.\n\nUser: {user_message}"
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",  # Correct active model
             temperature=0.7,
             max_tokens=200,
         )
 
         return chat_completion.choices[0].message.content
 
-    except Exception as e:
-        return f"ERROR DEBUG: {str(e)}"
+    except Exception:
+        return "AI service is temporarily unavailable. Please try again."
 
 # ===============================
 # CHAT PAGE
@@ -230,7 +230,7 @@ elif page == "ℹ About":
 This AI Mental Wellness Companion was developed as part of an IBM Virtual Internship project.
 
 ### Features:
-- AI-powered empathetic chatbot (Llama 3 via Groq)
+- AI-powered empathetic chatbot (Llama 3.1 via Groq)
 - Emotion detection
 - Crisis keyword detection
 - Mood analytics dashboard
@@ -240,9 +240,8 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 ### Technologies Used:
 - Python
 - Streamlit
-- Groq API (Llama 3)
+- Groq API (Llama 3.1)
 - Matplotlib
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
-
