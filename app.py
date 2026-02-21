@@ -1,21 +1,29 @@
-
+import os
 import matplotlib
 matplotlib.use("Agg")
+
 import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 from datetime import datetime
+from dotenv import load_dotenv
 
 # ===============================
-# CONFIG
+# LOAD ENV VARIABLES
 # ===============================
 
-HF_TOKEN = "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"
+load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
+
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
 }
+
+# ===============================
+# PAGE CONFIG
+# ===============================
 
 st.set_page_config(
     page_title="AI Mental Wellness Companion",
@@ -24,7 +32,7 @@ st.set_page_config(
 )
 
 # ===============================
-# SESSION STATE
+# SESSION STATE INIT
 # ===============================
 
 if "mood_scores" not in st.session_state:
@@ -54,15 +62,15 @@ with st.sidebar:
 def detect_emotion(text):
     text = text.lower()
 
-    if any(word in text for word in ["anxious", "nervous", "worried"]):
+    if any(word in text for word in ["anxious", "nervous", "worried", "panic"]):
         return "Anxiety", -1
-    elif any(word in text for word in ["sad", "depressed", "hopeless"]):
+    elif any(word in text for word in ["sad", "depressed", "hopeless", "lonely"]):
         return "Sadness", -1
-    elif any(word in text for word in ["angry", "mad", "frustrated"]):
+    elif any(word in text for word in ["angry", "mad", "frustrated", "irritated"]):
         return "Anger", -1
-    elif any(word in text for word in ["tired", "burnout", "exhausted"]):
+    elif any(word in text for word in ["tired", "burnout", "exhausted", "drained"]):
         return "Burnout", -1
-    elif any(word in text for word in ["happy", "excited", "grateful"]):
+    elif any(word in text for word in ["happy", "excited", "grateful", "good", "great", "awesome"]):
         return "Positive", 1
     else:
         return "Neutral", 0
@@ -83,7 +91,7 @@ def safety_check(text):
     return any(word in text.lower() for word in CRISIS_WORDS)
 
 # ===============================
-# AI RESPONSE
+# AI RESPONSE GENERATION
 # ===============================
 
 def generate_response(user_message, emotion):
@@ -109,15 +117,22 @@ Assistant:
 
     try:
         response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+
+        if response.status_code != 200:
+            return f"API Error: {response.status_code}"
+
         result = response.json()
+
+        if "error" in result:
+            return f"Model Error: {result['error']}"
 
         if isinstance(result, list):
             return result[0]["generated_text"].strip()
 
-        return "I'm here for you. Please try again."
+        return "Unexpected API response."
 
     except Exception as e:
-        return "I'm here for you. Please try again."
+        return f"Connection error: {str(e)}"
 
 # ===============================
 # CHAT PAGE
@@ -128,7 +143,6 @@ if page == "💬 Chat":
     st.title("💬 AI Mental Health Companion")
     st.warning("⚠ This is not a licensed therapist. In crisis, contact emergency services.")
 
-    # Display chat history
     for role, message in st.session_state.chat_history:
         with st.chat_message(role):
             st.write(message)
@@ -144,7 +158,6 @@ if page == "💬 Chat":
 
             st.session_state.mood_scores.append(score)
             st.session_state.mood_labels.append(emotion)
-
             st.session_state.chat_history.append(("user", user_input))
 
             with st.chat_message("assistant"):
@@ -164,9 +177,8 @@ elif page == "📊 Analytics":
 
     if len(st.session_state.mood_scores) == 0:
         st.info("No mood data yet. Start chatting to see analytics.")
-
     else:
-        # Mood Trend
+
         st.subheader("Mood Trend Over Time")
 
         fig1, ax1 = plt.subplots()
@@ -175,11 +187,9 @@ elif page == "📊 Analytics":
         ax1.set_ylabel("Mood Level (-1 to 1)")
         st.pyplot(fig1)
 
-        # Average
         average = sum(st.session_state.mood_scores) / len(st.session_state.mood_scores)
         st.metric("Average Mood Score", round(average, 2))
 
-        # Emotion Distribution
         st.subheader("Emotion Distribution")
 
         emotion_counts = {}
@@ -205,7 +215,6 @@ elif page == "📔 Journal":
     journal_text = st.text_area("Write your thoughts here...")
 
     if st.button("Save Entry"):
-
         if journal_text.strip():
             date = datetime.now().strftime("%Y-%m-%d %H:%M")
             entry = f"{date}\n{journal_text}\n\n"
