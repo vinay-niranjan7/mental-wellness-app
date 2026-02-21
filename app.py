@@ -6,16 +6,16 @@ import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 from datetime import datetime
-
+from dotenv import load_dotenv
 
 # ===============================
 # LOAD ENV VARIABLES
 # ===============================
 
+load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-HF_TOKEN = "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"
-
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
+API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}"
@@ -263,6 +263,3 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
-
-
-
