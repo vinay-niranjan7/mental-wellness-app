@@ -3,9 +3,26 @@ matplotlib.use("Agg")
 
 import streamlit as st
 import matplotlib.pyplot as plt
-from datetime import datetime
+import numpy as np
+import calendar
+from datetime import datetime, date
 from groq import Groq
-import time
+
+# PDF GENERATION
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import Table
+import os
+
+# ===============================
+# LOAD GROQ API KEY
+# ===============================
+
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+client = Groq(api_key=GROQ_API_KEY)
 
 # ===============================
 # PAGE CONFIG
@@ -18,14 +35,7 @@ st.set_page_config(
 )
 
 # ===============================
-# LOAD API KEY
-# ===============================
-
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-client = Groq(api_key=GROQ_API_KEY)
-
-# ===============================
-# SESSION STATE
+# SESSION STATE INIT
 # ===============================
 
 if "mood_scores" not in st.session_state:
@@ -33,6 +43,12 @@ if "mood_scores" not in st.session_state:
 
 if "mood_labels" not in st.session_state:
     st.session_state.mood_labels = []
+
+if "mood_intensity" not in st.session_state:
+    st.session_state.mood_intensity = []
+
+if "mood_dates" not in st.session_state:
+    st.session_state.mood_dates = []
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -46,45 +62,7 @@ if "journal_entries" not in st.session_state:
 
 with st.sidebar:
     st.title("🧠 Mental Wellness App")
-
-    theme_mode = st.toggle("🌙 Dark Mode", value=False)
-    private_mode = st.toggle("🔒 Private Mode", value=False)
-
-    st.markdown("---")
-
-    page = st.radio(
-        "Navigate",
-        [
-            "💬 Chat",
-            "📊 Analytics",
-            "📔 Journal",
-            "🧘 Wellness Tools",
-            "🌱 Growth Tracker",
-            "📝 Weekly Reflection",
-            "ℹ About"
-        ]
-    )
-
-# ===============================
-# THEME STYLING
-# ===============================
-
-if theme_mode:
-    st.markdown("""
-    <style>
-    .stApp {background-color: #0E1117; color: #FAFAFA;}
-    section[data-testid="stSidebar"] {background-color: #161B22;}
-    .stMetric {background-color: #1E2228; padding: 10px; border-radius: 10px; color: white;}
-    .stButton button {background-color: #2E8B57; color: white; border-radius: 8px;}
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-    .stMetric {background-color: #E6EAF1; padding: 10px; border-radius: 10px;}
-    .stButton button {border-radius: 8px;}
-    </style>
-    """, unsafe_allow_html=True)
+    page = st.radio("Navigate", ["💬 Chat", "📊 Analytics", "📔 Journal", "ℹ About"])
 
 # ===============================
 # CRISIS DETECTION
@@ -96,30 +74,44 @@ def safety_check(text):
     return any(word in text.lower() for word in CRISIS_WORDS)
 
 # ===============================
-# AI EMOTION DETECTION
+# EMOTION + INTENSITY DETECTION
 # ===============================
 
 def detect_emotion():
+
     try:
         recent_text = ""
         for role, msg in st.session_state.chat_history[-6:]:
             if role == "user":
                 recent_text += msg + "\n"
 
-        response = client.chat.completions.create(
+        completion = client.chat.completions.create(
             messages=[
-                {"role": "system",
-                 "content": "Classify the user's emotional state into one word only: Anxiety, Sadness, Anger, Burnout, Positive, Neutral."},
+                {
+                    "role": "system",
+                    "content": """Classify the user's emotional state.
+Choose one emotion: Anxiety, Sadness, Anger, Burnout, Positive, Neutral.
+Also assign intensity from 1 to 5.
+Respond strictly in format:
+Emotion: <emotion>
+Intensity: <number>"""
+                },
                 {"role": "user", "content": recent_text}
             ],
             model="llama-3.1-8b-instant",
             temperature=0,
-            max_tokens=10,
+            max_tokens=20,
         )
 
-        emotion = response.choices[0].message.content.strip()
+        result = completion.choices[0].message.content
+
+        lines = result.split("\n")
+        emotion = lines[0].split(":")[1].strip()
+        intensity = int(lines[1].split(":")[1].strip())
+
     except:
         emotion = "Neutral"
+        intensity = 3
 
     score_map = {
         "Anxiety": -1,
@@ -130,61 +122,50 @@ def detect_emotion():
         "Neutral": 0
     }
 
-    return emotion, score_map.get(emotion, 0)
+    return emotion, score_map.get(emotion, 0), intensity
 
 # ===============================
-# AI RESPONSE (WITH MEMORY LIMIT)
+# AI RESPONSE
 # ===============================
 
 def generate_response():
-    try:
-        messages = [
-            {"role": "system",
-             "content": "You are a compassionate mental health support assistant. Be empathetic and supportive."}
-        ]
 
-        recent_history = st.session_state.chat_history[-20:]
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a compassionate mental health support assistant."
+        }
+    ]
 
-        for role, message in recent_history:
-            messages.append({"role": role, "content": message})
+    for role, message in st.session_state.chat_history[-20:]:
+        messages.append({"role": role, "content": message})
 
-        response = client.chat.completions.create(
-            messages=messages,
-            model="llama-3.1-8b-instant",
-            temperature=0.7,
-            max_tokens=200,
-        )
+    completion = client.chat.completions.create(
+        messages=messages,
+        model="llama-3.1-8b-instant",
+        temperature=0.7,
+        max_tokens=200,
+    )
 
-        return response.choices[0].message.content
-    except:
-        return "AI service temporarily unavailable."
+    return completion.choices[0].message.content
 
 # ===============================
-# AI MOOD INSIGHT
+# COPING STRATEGY GENERATOR
 # ===============================
 
-def generate_mood_insight():
-    if not st.session_state.mood_labels:
-        return "Not enough data yet."
+def generate_coping_strategy():
 
-    try:
-        mood_text = ", ".join(st.session_state.mood_labels)
+    completion = client.chat.completions.create(
+        messages=[
+            {"role": "system", "content": "Provide one short practical coping strategy."},
+            {"role": "user", "content": "User emotional context: " + ", ".join(st.session_state.mood_labels[-3:])}
+        ],
+        model="llama-3.1-8b-instant",
+        temperature=0.7,
+        max_tokens=100,
+    )
 
-        response = client.chat.completions.create(
-            messages=[
-                {"role": "system",
-                 "content": "Provide a short emotional insight based on mood trend."},
-                {"role": "user",
-                 "content": f"Mood history: {mood_text}"}
-            ],
-            model="llama-3.1-8b-instant",
-            temperature=0.5,
-            max_tokens=100,
-        )
-
-        return response.choices[0].message.content
-    except:
-        return "Insight unavailable."
+    return completion.choices[0].message.content
 
 # ===============================
 # CHAT PAGE
@@ -193,7 +174,11 @@ def generate_mood_insight():
 if page == "💬 Chat":
 
     st.title("💬 AI Mental Health Companion")
-    st.warning("⚠ Not a licensed therapist. In crisis, contact emergency services.")
+
+    # Daily Check-in Reminder
+    today = date.today().isoformat()
+    if today not in st.session_state.mood_dates:
+        st.info("💛 You haven't checked in today.")
 
     for role, message in st.session_state.chat_history:
         with st.chat_message(role):
@@ -204,24 +189,26 @@ if page == "💬 Chat":
     if user_input:
 
         if safety_check(user_input):
-            st.error("🚨 If in danger, contact local emergency services immediately.")
+            st.error("🚨 If in danger call emergency services or 988 (US).")
         else:
-            if not private_mode:
-                st.session_state.chat_history.append(("user", user_input))
+            st.session_state.chat_history.append(("user", user_input))
 
-            emotion, score = detect_emotion()
+            emotion, score, intensity = detect_emotion()
 
-            if not private_mode:
-                st.session_state.mood_scores.append(score)
-                st.session_state.mood_labels.append(emotion)
+            st.session_state.mood_scores.append(score * intensity)
+            st.session_state.mood_labels.append(emotion)
+            st.session_state.mood_intensity.append(intensity)
+            st.session_state.mood_dates.append(today)
 
             with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    reply = generate_response()
-                    st.write(reply)
+                reply = generate_response()
+                st.write(reply)
 
-            if not private_mode:
-                st.session_state.chat_history.append(("assistant", reply))
+            st.session_state.chat_history.append(("assistant", reply))
+
+    if st.button("🧘 Suggest Coping Strategy"):
+        strategy = generate_coping_strategy()
+        st.success(strategy)
 
 # ===============================
 # ANALYTICS PAGE
@@ -231,20 +218,66 @@ elif page == "📊 Analytics":
 
     st.title("📊 Emotional Analytics")
 
-    if not st.session_state.mood_scores:
-        st.info("No data yet.")
+    if len(st.session_state.mood_scores) == 0:
+        st.info("Start chatting to see analytics.")
     else:
-        fig, ax = plt.subplots()
-        ax.plot(st.session_state.mood_scores)
-        ax.set_ylabel("Mood Score")
-        st.pyplot(fig)
 
-        st.metric("Average Mood",
-                  round(sum(st.session_state.mood_scores) /
-                        len(st.session_state.mood_scores), 2))
+        # Trend Graph
+        fig1, ax1 = plt.subplots()
+        ax1.plot(st.session_state.mood_scores)
+        ax1.set_title("Mood Trend")
+        st.pyplot(fig1)
 
-        st.subheader("AI Insight")
-        st.info(generate_mood_insight())
+        # Mood Calendar
+        st.subheader("📅 Mood Calendar")
+
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+
+        cal = calendar.monthcalendar(current_year, current_month)
+        month_matrix = np.zeros((len(cal), 7))
+
+        for i, week in enumerate(cal):
+            for j, day in enumerate(week):
+                if day != 0:
+                    day_str = f"{current_year}-{current_month:02d}-{day:02d}"
+                    if day_str in st.session_state.mood_dates:
+                        idx = st.session_state.mood_dates.index(day_str)
+                        month_matrix[i][j] = st.session_state.mood_scores[idx]
+
+        fig2, ax2 = plt.subplots()
+        ax2.imshow(month_matrix, aspect="auto")
+        ax2.set_title("Monthly Mood Heatmap")
+        st.pyplot(fig2)
+
+        # PDF Export
+        if st.button("📄 Export Analytics as PDF"):
+
+            pdf_path = "mental_wellness_report.pdf"
+            doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+            elements = []
+
+            styles = getSampleStyleSheet()
+            elements.append(Paragraph("Mental Wellness Report", styles["Title"]))
+            elements.append(Spacer(1, 0.3 * inch))
+
+            avg = round(np.mean(st.session_state.mood_scores), 2)
+            elements.append(Paragraph(f"Average Mood Score: {avg}", styles["Normal"]))
+            elements.append(Spacer(1, 0.2 * inch))
+
+            data = [["Session", "Mood Score"]]
+            for i, score in enumerate(st.session_state.mood_scores):
+                data.append([str(i+1), str(score)])
+
+            table = Table(data)
+            elements.append(table)
+
+            doc.build(elements)
+
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF Report", f, file_name=pdf_path)
+
+            os.remove(pdf_path)
 
 # ===============================
 # JOURNAL PAGE
@@ -254,90 +287,33 @@ elif page == "📔 Journal":
 
     st.title("📔 Journal")
 
-    text = st.text_area("Write your thoughts")
+    text = st.text_area("Write here...")
 
     if st.button("Save Entry"):
         if text.strip():
-            entry = f"{datetime.now()}\n{text}\n"
-            st.session_state.journal_entries.append(entry)
-            st.success("Saved")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            st.session_state.journal_entries.append(f"{timestamp}\n{text}\n")
+            st.success("Saved!")
 
     for entry in reversed(st.session_state.journal_entries):
         st.text(entry)
 
 # ===============================
-# WELLNESS TOOLS
-# ===============================
-
-elif page == "🧘 Wellness Tools":
-
-    st.title("🧘 Wellness Tools")
-
-    tool = st.selectbox("Choose tool",
-                        ["Breathing", "Grounding", "Gratitude"])
-
-    if tool == "Breathing":
-        st.write("Inhale 4s • Hold 4s • Exhale 6s")
-        if st.button("Start"):
-            for i in range(100):
-                time.sleep(0.03)
-                st.progress(i + 1)
-
-    elif tool == "Grounding":
-        st.write("5 things you see, 4 feel, 3 hear, 2 smell, 1 taste")
-
-    elif tool == "Gratitude":
-        st.text_area("Write 3 things you're grateful for")
-
-# ===============================
-# GROWTH TRACKER
-# ===============================
-
-elif page == "🌱 Growth Tracker":
-
-    st.title("🌱 Growth Tracker")
-
-    if not st.session_state.mood_scores:
-        st.info("No data yet.")
-    else:
-        positive_ratio = (
-            st.session_state.mood_scores.count(1) /
-            len(st.session_state.mood_scores)
-        )
-        stability = 1 - abs(sum(st.session_state.mood_scores)) / \
-            (len(st.session_state.mood_scores) + 1)
-
-        col1, col2 = st.columns(2)
-        col1.metric("Positive Ratio",
-                    f"{round(positive_ratio * 100)}%")
-        col2.metric("Stability Index",
-                    round(stability, 2))
-
-# ===============================
-# WEEKLY REFLECTION
-# ===============================
-
-elif page == "📝 Weekly Reflection":
-
-    st.title("📝 AI Weekly Reflection")
-
-    st.info(generate_mood_insight())
-
-# ===============================
-# ABOUT
+# ABOUT PAGE
 # ===============================
 
 elif page == "ℹ About":
 
-    st.title("ℹ About")
+    st.title("About This App")
 
     st.write("""
-AI-powered mental wellness companion built with:
+AI-powered mental wellness companion using:
+- Llama 3.1 via Groq
+- Mood intensity scoring
+- Mood calendar heatmap
+- Coping strategy generator
+- PDF analytics export
+- Journaling system
 
-- Llama 3.1 (Groq free API)
-- Context-aware memory
-- AI emotion detection
-- Mood analytics
-- Growth tracking
-- Wellness interventions
+This app is for support only and not a replacement for professional care.
 """)
