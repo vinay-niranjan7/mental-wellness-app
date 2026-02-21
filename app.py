@@ -116,7 +116,8 @@ Assistant:
 
     try:
         response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-
+        st.write("DEBUG STATUS:", response.status_code)
+        st.write("DEBUG RESPONSE:", response.text)
         if response.status_code != 200:
             return f"API Error: {response.status_code}"
 
@@ -262,6 +263,7 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
+
 
 
 
