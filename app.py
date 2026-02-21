@@ -4,20 +4,14 @@ matplotlib.use("Agg")
 import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
-from huggingface_hub import InferenceClient
-import time
+from groq import Groq
 
 # ===============================
-# LOAD TOKEN
+# LOAD GROQ API KEY
 # ===============================
 
-HF_TOKEN = st.secrets["HF_TOKEN"]
-
-# Initialize HuggingFace client
-client = InferenceClient(
-    model="HuggingFaceH4/zephyr-7b-beta",  # Stable chat model
-    token=HF_TOKEN
-)
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+client = Groq(api_key=GROQ_API_KEY)
 
 # ===============================
 # PAGE CONFIG
@@ -68,7 +62,7 @@ def detect_emotion(text):
         return "Anger", -1
     elif any(word in text for word in ["tired", "burnout", "exhausted", "drained"]):
         return "Burnout", -1
-    elif any(word in text for word in ["happy", "excited", "grateful", "great", "awesome"]):
+    elif any(word in text for word in ["happy", "excited", "grateful", "great", "awesome", "good"]):
         return "Positive", 1
     else:
         return "Neutral", 0
@@ -94,32 +88,27 @@ def safety_check(text):
 
 def generate_response(user_message, emotion):
 
-    prompt = f"""
-You are a compassionate AI mental health support assistant.
-The user is experiencing {emotion}.
-Respond with empathy, validation, and gentle encouragement.
-Keep response under 120 words.
-"""
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a compassionate mental health support assistant. Provide empathetic, supportive, and safe responses."
+                },
+                {
+                    "role": "user",
+                    "content": f"The user feels {emotion}. Respond with empathy under 120 words.\n\nUser: {user_message}"
+                }
+            ],
+            model="llama3-8b-8192",
+            temperature=0.7,
+            max_tokens=200,
+        )
 
-    messages = [
-        {"role": "system", "content": "You are a compassionate mental health assistant."},
-        {"role": "user", "content": f"{prompt}\nUser: {user_message}"}
-    ]
+        return chat_completion.choices[0].message.content
 
-    for _ in range(2):  # retry once if model busy
-        try:
-            response = client.chat_completion(
-                messages=messages,
-                max_tokens=200,
-                temperature=0.7
-            )
-
-            return response.choices[0].message.content.strip()
-
-        except Exception:
-            time.sleep(3)
-
-    return "Model is currently busy. Please try again in a moment."
+    except Exception as e:
+        return "AI service is temporarily unavailable. Please try again."
 
 # ===============================
 # CHAT PAGE
@@ -241,7 +230,7 @@ elif page == "ℹ About":
 This AI Mental Wellness Companion was developed as part of an IBM Virtual Internship project.
 
 ### Features:
-- AI-powered empathetic chatbot
+- AI-powered empathetic chatbot (Llama 3 via Groq)
 - Emotion detection
 - Crisis keyword detection
 - Mood analytics dashboard
@@ -251,7 +240,7 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 ### Technologies Used:
 - Python
 - Streamlit
-- HuggingFace (Zephyr-7B)
+- Groq API (Llama 3)
 - Matplotlib
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
