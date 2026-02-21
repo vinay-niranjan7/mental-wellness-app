@@ -33,8 +33,7 @@ A Streamlit-based mental wellness web app powered by **Llama 3.1** via **Groq's 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/ai-mental-wellness-companion.git
-cd ai-mental-wellness-companion
+git clone https://github.com/vinay-niranjan7/mental-wellness-app.git
 ```
 
 ### 2. Install Dependencies
@@ -44,8 +43,6 @@ pip install streamlit groq matplotlib requests
 ```
 
 ### 3. Set Up Your Groq API Key
-
-Create a `.streamlit/secrets.toml` file in the project root:
 
 ```toml
 GROQ_API_KEY = "your_groq_api_key_here"
@@ -68,9 +65,8 @@ The app will open in your browser at `http://localhost:8501`.
 ```
 ai-mental-wellness-companion/
 │
-├── app.py                  # Main application file
-├── .streamlit/
-│   └── secrets.toml        # API keys (do not commit this file)
+├── app.py
+└── requriements.txt      
 └── README.md
 ```
 
