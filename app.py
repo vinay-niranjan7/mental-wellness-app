@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 # ===============================
 
 load_dotenv()
-HF_TOKEN = os.getenv("HF_TOKEN")
+HF_TOKEN = "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"
 
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 
@@ -263,3 +263,4 @@ This AI Mental Wellness Companion was developed as part of an IBM Virtual Intern
 
 This system is designed for supportive guidance only and does not replace professional mental health care.
 """)
+
