@@ -233,8 +233,41 @@ with st.sidebar:
 # CRISIS DETECTION
 # ===============================
 
-CRISIS_WORDS = ["suicide", "kill myself", "end my life",
-                "self harm", "i want to die", "hurt myself"]
+CRISIS_WORDS = [
+    # Direct suicidal ideation
+    "suicide", "suicidal", "kill myself", "killing myself",
+    "end my life", "take my life", "end it all", "end it",
+    "i want to die", "i wanna die", "wanna die", "want to die",
+    "i'm going to die", "i will die", "i should die", "i deserve to die",
+    "better off dead", "better off without me", "world without me",
+    "no reason to live", "nothing to live for", "not worth living",
+    "life is not worth living", "life isn't worth living",
+
+    # Self-harm
+    "self harm", "self-harm", "hurt myself", "harm myself",
+    "cut myself", "cutting myself", "burn myself", "burning myself",
+    "injure myself", "punish myself", "hurt myself on purpose",
+
+    # Disappearing / giving up
+    "want to disappear", "wish i could disappear", "disappear forever",
+    "don't want to exist", "don't want to be here", "don't want to be alive",
+    "wish i was never born", "wish i wasn't here", "wish i were dead",
+    "tired of living", "tired of life", "done with life", "done with everything",
+    "can't go on", "can't keep going", "can't do this anymore",
+    "no point anymore", "no point in living", "no point going on",
+    "give up on life", "giving up on life",
+
+    # Hopelessness / farewell signals
+    "goodbye forever", "final goodbye", "last goodbye", "saying goodbye",
+    "nobody would miss me", "no one would miss me", "no one cares if i die",
+    "nobody cares if i'm gone", "everyone is better off without me",
+    "i have a plan to", "i've made a plan", "i've decided to end",
+    "planned my death", "planning to kill",
+
+    # Methods (intentionally vague to avoid instruction)
+    "overdose on", "overdosing on", "take all my pills",
+    "jump off", "hang myself", "hanging myself",
+]
 
 def safety_check(text):
     return any(w in text.lower() for w in CRISIS_WORDS)
@@ -942,3 +975,4 @@ if ("Notification" in window && Notification.permission === "default") {
 }
 </script>
 """, unsafe_allow_html=True)
+
