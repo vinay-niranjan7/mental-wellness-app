@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use("Agg")
 
+import re
 import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime, date, timedelta
@@ -270,7 +271,8 @@ CRISIS_WORDS = [
 ]
 
 def safety_check(text):
-    return any(w in text.lower() for w in CRISIS_WORDS)
+    cleaned = re.sub(r"[^\w\s']", " ", text.lower())
+    return any(w in cleaned for w in CRISIS_WORDS)
 
 # ===============================
 # GROQ HELPERS
@@ -538,19 +540,39 @@ elif page == "💬 Chat":
         initial_input = st.session_state["_suggested_prompt"]
         del st.session_state["_suggested_prompt"]
 
+    # Persist crisis banner across reruns
+    if st.session_state.get("show_crisis"):
+        st.error("""
+🚨 **We noticed you may be going through something serious. Please reach out:**
+- 🇺🇸 **Suicide & Crisis Lifeline:** Call or text **988**
+- 🌍 **International Association for Suicide Prevention:** https://www.iasp.info/resources/Crisis_Centres/
+- 🆘 Or contact your **local emergency services (911 / 112)**
+
+You are not alone. Help is available right now. 💙
+""")
+        if st.button("✅ I'm safe / Dismiss", key="dismiss_crisis"):
+            st.session_state["show_crisis"] = False
+            st.rerun()
+
     user_input = st.chat_input("How are you feeling today?") or initial_input
 
     if user_input:
+        ts = datetime.now().strftime("%b %d, %H:%M")
         if safety_check(user_input):
-            st.error("""
-🚨 **If you're in immediate danger, please reach out:**
-- 🇺🇸 Suicide & Crisis Lifeline: **988** (call or text)
-- 🌍 Or contact local emergency services
-
-You are not alone. Help is available. 💙
-""")
+            # Save user message to chat history so it's visible
+            st.session_state.chat_history.append(("user", user_input, ts))
+            # Add a compassionate assistant acknowledgement
+            crisis_reply = (
+                "💙 I hear you, and I'm really glad you're talking to me. "
+                "What you're feeling matters deeply, and you don't have to face this alone. "
+                "Please reach out to a crisis line right now — trained helpers are available 24/7. "
+                "🇺🇸 Call or text **988** (Suicide & Crisis Lifeline) or contact your local emergency services."
+            )
+            st.session_state.chat_history.append(("assistant", crisis_reply, ts))
+            # Set persistent banner flag
+            st.session_state["show_crisis"] = True
+            flush()
         else:
-            ts = datetime.now().strftime("%b %d, %H:%M")
             st.session_state.chat_history.append(("user", user_input, ts))
 
             emotion, score = detect_emotion()
@@ -975,4 +997,3 @@ if ("Notification" in window && Notification.permission === "default") {
 }
 </script>
 """, unsafe_allow_html=True)
-
