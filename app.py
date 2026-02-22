@@ -243,6 +243,9 @@ def detect_emotion():
         emotion = completion.choices[0].message.content.strip()
     except Exception:
         emotion = "Neutral"
+    # Normalize to a known label — guards against "Positive." or "positive" variants
+    known = ["Anxiety", "Sadness", "Anger", "Burnout", "Positive", "Neutral"]
+    emotion = next((k for k in known if k.lower() in emotion.lower()), "Neutral")
     score_map = {"Anxiety": -1, "Sadness": -1, "Anger": -1, "Burnout": -1, "Positive": 1, "Neutral": 0}
     return emotion, score_map.get(emotion, 0)
 
@@ -574,7 +577,10 @@ elif page == "📊 Analytics":
                 ax3.grid(True, alpha=0.3, axis='y')
                 best = max(days_with_data, key=lambda x: x[1])
                 worst = min(days_with_data, key=lambda x: x[1])
-                ax3.set_title(f"Best: {best[0]} | Worst: {worst[0]}", fontsize=10)
+                if len(days_with_data) > 1 and best[0] != worst[0]:
+                    ax3.set_title(f"Best: {best[0]} | Worst: {worst[0]}", fontsize=10)
+                elif len(days_with_data) == 1:
+                    ax3.set_title(f"Only data for {best[0]} so far", fontsize=10)
                 st.pyplot(fig3)
                 plt.close()
             else:
