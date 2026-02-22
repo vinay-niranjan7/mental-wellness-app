@@ -98,6 +98,16 @@ def load_user_data(username: str) -> dict:
             for k, v in PROFILE_DEFAULTS.items():
                 if k not in data:
                     data[k] = v
+            # Sanitize any dirty labels saved by older app versions (e.g. "Positive.")
+            _emotion_known = ["Anxiety", "Sadness", "Anger", "Burnout", "Positive", "Neutral"]
+            _sentiment_known = ["Positive", "Negative", "Neutral"]
+            data["mood_labels"] = [
+                next((k for k in _emotion_known if k.lower() in lbl.lower()), "Neutral")
+                for lbl in data.get("mood_labels", [])
+            ]
+            for entry in data.get("journal_entries", []):
+                raw = entry.get("sentiment", "Neutral")
+                entry["sentiment"] = next((k for k in _sentiment_known if k.lower() in raw.lower()), "Neutral")
             return data
         except Exception:
             pass
@@ -325,7 +335,9 @@ def analyze_journal_sentiment(text):
             ],
             model="llama-3.1-8b-instant", temperature=0, max_tokens=5,
         )
-        result = completion.choices[0].message.content.strip()
+        raw = completion.choices[0].message.content.strip()
+        known = ["Positive", "Negative", "Neutral"]
+        result = next((k for k in known if k.lower() in raw.lower()), "Neutral")
         return result, {"Positive": 1, "Negative": -1, "Neutral": 0}.get(result, 0)
     except Exception:
         return "Neutral", 0
