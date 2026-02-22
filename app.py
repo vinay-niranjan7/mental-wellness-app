@@ -12,20 +12,16 @@ import requests
 from io import BytesIO
 from groq import Groq
 
-# ===============================
-# PAGE CONFIG
-# ===============================
 
+# PAGE CONFIG
 st.set_page_config(
     page_title="AI Mental Wellness Companion",
     page_icon="🧠",
     layout="wide"
 )
 
-# ===============================
-# CUSTOM CSS (Light theme)
-# ===============================
 
+# CUSTOM CSS (Light theme)
 st.markdown("""
 <style>
 .stApp { background-color: #f8f9fa; color: #212529; }
@@ -43,17 +39,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ===============================
-# LOAD GROQ API KEY
-# ===============================
 
+# LOAD GROQ API KEY
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=GROQ_API_KEY)
 
-# ===============================
-# SESSION STATE INIT
-# ===============================
 
+# SESSION STATE INIT
 defaults = {
     "mood_scores": [],
     "mood_labels": [],
@@ -76,10 +68,8 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ===============================
-# ONBOARDING
-# ===============================
 
+# ONBOARDING
 if not st.session_state.onboarded:
     st.title("🧠 Welcome to Your AI Mental Wellness Companion")
     st.markdown("---")
@@ -112,10 +102,8 @@ if not st.session_state.onboarded:
         """, unsafe_allow_html=True)
     st.stop()
 
-# ===============================
-# SIDEBAR
-# ===============================
 
+# SIDEBAR
 with st.sidebar:
     st.title(f"🧠 Hi, {st.session_state.username}!")
     
@@ -155,10 +143,8 @@ with st.sidebar:
         "ℹ About"
     ])
 
-# ===============================
-# CRISIS DETECTION
-# ===============================
 
+# CRISIS DETECTION
 CRISIS_WORDS = [
     "suicide", "kill myself", "end my life", 
     "self harm", "i want to die", "hurt myself"
@@ -167,10 +153,8 @@ CRISIS_WORDS = [
 def safety_check(text):
     return any(word in text.lower() for word in CRISIS_WORDS)
 
-# ===============================
-# HELPERS — GROQ CALLS
-# ===============================
 
+# HELPERS — GROQ CALLS
 def detect_emotion():
     try:
         if not st.session_state.chat_history:
@@ -315,10 +299,8 @@ def get_quotable_quote():
     q = random.choice(quotes)
     return q[0], q[1]
 
-# ===============================
-# HOME PAGE
-# ===============================
 
+# HOME PAGE
 if page == "🏠 Home":
     st.title(f"🌿 Welcome back, {st.session_state.username}!")
 
@@ -381,9 +363,8 @@ if page == "🏠 Home":
     with col4:
         st.metric("🙏 Gratitude Logs", len(st.session_state.gratitude_entries))
 
-# ===============================
+
 # CHAT PAGE
-# ===============================
 
 elif page == "💬 Chat":
     st.title("💬 AI Mental Health Companion")
@@ -453,10 +434,8 @@ You are not alone. Help is available. 💙
             st.session_state.chat_history.append(("assistant", reply, ts))
             st.rerun()
 
-# ===============================
-# ANALYTICS PAGE
-# ===============================
 
+# ANALYTICS PAGE
 elif page == "📊 Analytics":
     st.title("📊 Emotional Analytics Dashboard")
 
@@ -575,10 +554,8 @@ elif page == "📊 Analytics":
                 mime="text/plain"
             )
 
-# ===============================
-# JOURNAL PAGE
-# ===============================
 
+# JOURNAL PAGE
 elif page == "📔 Journal":
     st.title("📔 Daily Journal")
     
@@ -668,10 +645,8 @@ elif page == "📔 Journal":
         full_text = "\n\n".join([f"[{e['date']}] ({e.get('sentiment','')})\n{e['text']}" for e in st.session_state.journal_entries])
         st.download_button("📥 Download All Entries", full_text, file_name="journal.txt")
 
-# ===============================
-# GRATITUDE PAGE
-# ===============================
 
+# GRATITUDE PAGE
 elif page == "🙏 Gratitude":
     st.title("🙏 Gratitude Log")
     st.markdown("*Research shows that noting 3 things you're grateful for daily boosts well-being.*")
@@ -713,10 +688,8 @@ elif page == "🙏 Gratitude":
                     if item.strip():
                         st.write(f"{i}. {item}")
 
-# ===============================
-# WELLNESS TOOLS PAGE
-# ===============================
 
+# WELLNESS TOOLS PAGE
 elif page == "🧘 Wellness Tools":
     st.title("🧘 Wellness Tools")
     
@@ -856,10 +829,8 @@ elif page == "🧘 Wellness Tools":
             st.session_state.journal_entries.append(entry)
             st.success("Reflection saved to your journal! 🌟")
 
-# ===============================
-# ABOUT PAGE
-# ===============================
 
+# ABOUT PAGE
 elif page == "ℹ About":
     st.title("ℹ️ About This Project")
     st.markdown(f"""
@@ -886,10 +857,8 @@ elif page == "ℹ About":
     > If you are in crisis, please contact your local emergency services.
     """)
 
-# ===============================
-# BROWSER REMINDER NOTIFICATION (JS)
-# ===============================
 
+# BROWSER REMINDER NOTIFICATION (JS)
 st.markdown("""
 <script>
 if ("Notification" in window && Notification.permission === "default") {
@@ -906,3 +875,4 @@ if ("Notification" in window && Notification.permission === "default") {
 }
 </script>
 """, unsafe_allow_html=True)
+
