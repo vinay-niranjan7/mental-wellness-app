@@ -132,10 +132,24 @@ def flush():
 # SESSION STATE BOOTSTRAP
 # ===============================
 
-# Non-persistent UI state (survive reruns, reset on refresh — that's fine)
+# -------------------------------------------------------
+# PERSISTENT LOGIN via URL query params
+# When user logs in, their name is written to ?user=Name
+# On refresh the URL still carries ?user=Name so we
+# auto-login without showing the onboarding screen again.
+# -------------------------------------------------------
 for k, v in {"username": "", "onboarded": False, "data_loaded": False}.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+# Auto-login from query param on refresh
+if not st.session_state.onboarded:
+    params = st.query_params
+    saved_name = params.get("user", "").strip()
+    if saved_name:
+        st.session_state.username = saved_name
+        st.session_state.onboarded = True
+        st.session_state.data_loaded = False
 
 # ===============================
 # ONBOARDING
@@ -164,7 +178,9 @@ if not st.session_state.onboarded:
             if name.strip():
                 st.session_state.username = name.strip()
                 st.session_state.onboarded = True
-                st.session_state.data_loaded = False  # force load on next render
+                st.session_state.data_loaded = False
+                # Save name to URL so refresh auto-logs in
+                st.query_params["user"] = name.strip()
                 st.rerun()
             else:
                 st.warning("Please enter your name to continue.")
@@ -219,6 +235,14 @@ with st.sidebar:
         "🏠 Home", "💬 Chat", "📊 Analytics",
         "📔 Journal", "🙏 Gratitude", "🧘 Wellness Tools", "ℹ About"
     ])
+
+    st.markdown("---")
+    if st.button("🔄 Switch User"):
+        # Clear query param and all session state so onboarding shows again
+        st.query_params.clear()
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
 
 # ===============================
 # CRISIS DETECTION
