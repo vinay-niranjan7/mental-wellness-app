@@ -67,7 +67,8 @@ PERSISTENT_KEYS = [
     "check_in_done_today", "last_check_in_date",
     "streak", "writing_streak", "last_journal_date",
     "affirmation_of_day", "affirmation_date",
-    "streak_updated_date",
+    "streak_updated_date", "show_crisis",
+    "quote_of_day", "quote_author", "quote_date",
 ]
 
 # Defaults for a brand-new user profile
@@ -86,6 +87,10 @@ PROFILE_DEFAULTS = {
     "affirmation_of_day": None,
     "affirmation_date": None,
     "streak_updated_date": None,
+    "show_crisis": False,
+    "quote_of_day": None,
+    "quote_author": None,
+    "quote_date": None,
 }
 
 def load_user_data(username: str) -> dict:
@@ -187,6 +192,9 @@ if not st.session_state.data_loaded:
     profile = load_user_data(st.session_state.username)
     for k, v in profile.items():
         st.session_state[k] = v
+    # Normalize check-in flag: if last check-in wasn't today, reset it
+    if st.session_state.get("last_check_in_date") != str(date.today()):
+        st.session_state.check_in_done_today = False
     st.session_state.data_loaded = True
 
 # Defined here so every page section can use them
@@ -237,7 +245,7 @@ with st.sidebar:
 CRISIS_WORDS = [
     # Direct suicidal ideation
     "suicide", "suicidal", "kill myself", "killing myself",
-    "end my life", "take my life", "end it all", "end it",
+    "end my life", "take my life", "end it all",
     "i want to die", "i wanna die", "wanna die", "want to die",
     "i'm going to die", "i will die", "i should die", "i deserve to die",
     "better off dead", "better off without me", "world without me",
@@ -428,19 +436,34 @@ def get_daily_affirmation():
 
 
 def get_quotable_quote():
+    today_str = str(date.today())
+    if st.session_state.get("quote_date") == today_str and st.session_state.get("quote_of_day"):
+        return st.session_state["quote_of_day"], st.session_state["quote_author"]
     try:
         r = requests.get("https://api.quotable.io/random?tags=inspirational|motivational", timeout=4)
         if r.status_code == 200:
             d = r.json()
-            return d.get("content", ""), d.get("author", "")
+            content, author = d.get("content", ""), d.get("author", "")
+            if content:
+                st.session_state["quote_of_day"] = content
+                st.session_state["quote_author"] = author
+                st.session_state["quote_date"] = today_str
+                save_user_data(st.session_state.username)
+                return content, author
     except Exception:
         pass
-    quotes = [
+    fallback_quotes = [
         ("The darkest night is often the bridge to the brightest tomorrow.", "Anonymous"),
         ("You don't have to be positive all the time.", "Lori Deschene"),
         ("Healing is not linear.", "Anonymous"),
+        ("You are allowed to be both a masterpiece and a work in progress.", "Sophia Bush"),
+        ("Almost everything will work again if you unplug it for a few minutes — including you.", "Anne Lamott"),
     ]
-    q = random.choice(quotes)
+    q = random.choice(fallback_quotes)
+    st.session_state["quote_of_day"] = q[0]
+    st.session_state["quote_author"] = q[1]
+    st.session_state["quote_date"] = today_str
+    save_user_data(st.session_state.username)
     return q[0], q[1]
 
 
@@ -740,7 +763,9 @@ elif page == "📔 Journal":
                 "word_count": word_count
             })
             st.session_state.mood_scores.append(s_score)
-            st.session_state.mood_labels.append(sentiment if sentiment in ["Positive", "Negative"] else "Neutral")
+            # Map journal sentiments to known emotion labels used across the app
+            _journal_label_map = {"Positive": "Positive", "Negative": "Sadness", "Neutral": "Neutral"}
+            st.session_state.mood_labels.append(_journal_label_map.get(sentiment, "Neutral"))
             st.session_state.mood_dates.append(dt.strftime("%Y-%m-%d %H:%M"))
 
             # Writing streak — only increment once per day
@@ -977,23 +1002,4 @@ elif page == "ℹ About":
     > If you are in crisis, please contact your local emergency services.
     """)
 
-# ===============================
-# BROWSER NOTIFICATION (JS)
-# ===============================
-
-st.markdown("""
-<script>
-if ("Notification" in window && Notification.permission === "default") {
-    setTimeout(() => {
-        Notification.requestPermission().then(perm => {
-            if (perm === "granted") {
-                new Notification("🧠 Mental Wellness Reminder", {
-                    body: "Don't forget to check in with yourself today! 💙",
-                    icon: "🧠"
-                });
-            }
-        });
-    }, 3000);
-}
-</script>
-""", unsafe_allow_html=True)
+# End of app
