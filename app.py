@@ -173,6 +173,10 @@ if not st.session_state.data_loaded:
         st.session_state[k] = v
     st.session_state.data_loaded = True
 
+# Defined here so every page section can use them
+today = date.today()
+today_str = str(today)
+
 # ===============================
 # SIDEBAR
 # ===============================
