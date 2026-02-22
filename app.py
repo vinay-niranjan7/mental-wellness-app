@@ -129,34 +129,15 @@ def flush():
     st.rerun()
 
 # ===============================
-# SESSION STATE BOOTSTRAP
+# GOOGLE OAUTH — LOGIN GATE
 # ===============================
-
+# Uses Streamlit's built-in st.login() / st.user / st.logout().
+# No extra library needed. Handles cookies + session automatically.
+# Persistent across refreshes — Google cookie survives browser restarts.
 # -------------------------------------------------------
-# PERSISTENT LOGIN via URL query params
-# When user logs in, their name is written to ?user=Name
-# On refresh the URL still carries ?user=Name so we
-# auto-login without showing the onboarding screen again.
-# -------------------------------------------------------
-for k, v in {"username": "", "onboarded": False, "data_loaded": False}.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
 
-# Auto-login from query param on refresh
-if not st.session_state.onboarded:
-    params = st.query_params
-    saved_name = params.get("user", "").strip()
-    if saved_name:
-        st.session_state.username = saved_name
-        st.session_state.onboarded = True
-        st.session_state.data_loaded = False
-
-# ===============================
-# ONBOARDING
-# ===============================
-
-if not st.session_state.onboarded:
-    st.title("🧠 Welcome to Your AI Mental Wellness Companion")
+if not st.user.is_logged_in:
+    st.title("🧠 AI Mental Wellness Companion")
     st.markdown("---")
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -173,21 +154,29 @@ if not st.session_state.onboarded:
         > ⚠️ This is **not** a replacement for licensed mental health care.  
         > In a crisis, please contact your local emergency services.
         """)
-        name = st.text_input("What should I call you?", placeholder="Enter your name...")
-        if st.button("✨ Let's Begin", type="primary"):
-            if name.strip():
-                st.session_state.username = name.strip()
-                st.session_state.onboarded = True
-                st.session_state.data_loaded = False
-                # Save name to URL so refresh auto-logs in
-                st.query_params["user"] = name.strip()
-                st.rerun()
-            else:
-                st.warning("Please enter your name to continue.")
+        st.markdown("###")
+        st.button("🔐 Sign in with Google", on_click=st.login, type="primary")
     with col2:
         st.markdown("<div style='text-align:center;font-size:5em;margin-top:40px'>🌿</div>",
                     unsafe_allow_html=True)
     st.stop()
+
+# User is logged in — derive username from their Google profile
+# Use first name for display, email as unique key for data file
+_google_name  = st.user.get("name", "Friend")
+_google_email = st.user.get("email", "unknown")
+_display_name = _google_name.split()[0]  # first name only
+
+# ===============================
+# SESSION STATE BOOTSTRAP
+# ===============================
+
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+
+# username drives the JSON filename — use email so it's unique per Google account
+if "username" not in st.session_state:
+    st.session_state.username = _google_email
 
 # ===============================
 # LOAD PERSISTENT DATA (once per session)
@@ -208,7 +197,8 @@ today_str = str(today)
 # ===============================
 
 with st.sidebar:
-    st.title(f"🧠 Hi, {st.session_state.username}!")
+    st.title(f"🧠 Hi, {_display_name}!")
+    st.caption(f"📧 {_google_email}")
 
     # Update streak exactly once per calendar day
     if st.session_state.get("streak_updated_date") != today_str:
@@ -237,12 +227,7 @@ with st.sidebar:
     ])
 
     st.markdown("---")
-    if st.button("🔄 Switch User"):
-        # Clear query param and all session state so onboarding shows again
-        st.query_params.clear()
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+    st.button("🚪 Log Out", on_click=st.logout)
 
 # ===============================
 # CRISIS DETECTION
@@ -288,7 +273,7 @@ def generate_response():
     try:
         messages = [{"role": "system", "content": (
             f"You are a compassionate mental health and emotional wellness assistant. "
-            f"The user's name is {st.session_state.username}. "
+            f"The user's name is {_display_name}. "
             "You ONLY discuss topics related to mental health, emotional wellbeing, stress, anxiety, depression, "
             "relationships, self-care, mindfulness, grief, motivation, loneliness, sleep, burnout, and similar "
             "emotional or psychological topics. "
@@ -429,11 +414,11 @@ def get_quotable_quote():
 # ===============================
 
 if page == "🏠 Home":
-    st.title(f"🌿 Welcome back, {st.session_state.username}!")
+    st.title(f"🌿 Welcome back, {_display_name}!")
 
     today_str = str(date.today())
     if not st.session_state.check_in_done_today or st.session_state.last_check_in_date != today_str:
-        st.info(f"💙 **Daily Check-in** — How are you feeling today, {st.session_state.username}?")
+        st.info(f"💙 **Daily Check-in** — How are you feeling today, {_display_name}?")
         c1, c2 = st.columns([3, 1])
         with c1:
             mood_today = st.select_slider(
@@ -648,7 +633,7 @@ elif page == "📊 Analytics":
         st.subheader("📄 Export Analytics")
         if st.button("📥 Prepare Mood Report"):
             lines = [
-                f"Mental Wellness Report — {st.session_state.username}",
+                f"Mental Wellness Report — {_display_name} ({_google_email})",
                 f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
                 "=" * 40,
                 f"Total Check-ins: {len(st.session_state.mood_scores)}",
