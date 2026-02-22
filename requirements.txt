@@ -2,3 +2,4 @@ streamlit>=1.35.0
 groq
 matplotlib
 requests
+Authlib>=1.3.2
