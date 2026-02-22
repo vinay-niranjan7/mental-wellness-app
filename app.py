@@ -520,7 +520,7 @@ elif page == "📊 Analytics":
             most_common = max(set(st.session_state.mood_labels), key=st.session_state.mood_labels.count)
             st.metric("😶 Most Common Emotion", most_common)
         with c3:
-            pos_pct = round(100 * st.session_state.mood_labels.count("Positive") / len(st.session_state.mood_labels))
+            pos_pct = int(round(100 * st.session_state.mood_labels.count("Positive") / len(st.session_state.mood_labels)))
             st.metric("😊 Positive %", f"{pos_pct}%")
 
         st.markdown("---")
@@ -584,12 +584,14 @@ elif page == "📊 Analytics":
         st.subheader("📋 Weekly Mood Summary Report")
         if st.button("🤖 Generate AI Summary"):
             with st.spinner("Generating your personalized summary..."):
-                st.info(generate_weekly_summary())
+                _summary = generate_weekly_summary()
+            st.info(_summary)
 
         st.subheader("💡 AI Mood Insight")
         if st.button("🤖 Generate Mood Insight"):
             with st.spinner("Generating insight..."):
-                st.info(generate_mood_insight())
+                _insight = generate_mood_insight()
+            st.info(_insight)
 
         st.markdown("---")
         st.subheader("📄 Export Analytics")
@@ -606,7 +608,9 @@ elif page == "📊 Analytics":
             ]
             for i, (label, score) in enumerate(zip(st.session_state.mood_labels, st.session_state.mood_scores)):
                 lines.append(f"  {i+1}. {label} ({score:+.1f})")
-            st.download_button("💾 Download Report", "\n".join(lines),
+            st.session_state["_report_text"] = "\n".join(lines)
+        if "_report_text" in st.session_state:
+            st.download_button("💾 Download Report", st.session_state["_report_text"],
                                file_name=f"wellness_report_{date.today()}.txt", mime="text/plain")
 
 
