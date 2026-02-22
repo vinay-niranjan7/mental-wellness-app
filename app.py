@@ -180,7 +180,8 @@ if not st.session_state.data_loaded:
 with st.sidebar:
     st.title(f"🧠 Hi, {st.session_state.username}!")
 
-
+    # Update streak exactly once per calendar day
+    if st.session_state.get("streak_updated_date") != today_str:
         last_ci = st.session_state.last_check_in_date
         if last_ci:
             try:
