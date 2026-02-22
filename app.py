@@ -119,23 +119,28 @@ if not st.session_state.onboarded:
 with st.sidebar:
     st.title(f"🧠 Hi, {st.session_state.username}!")
     
-    # Streak display
+    
     today = date.today()
-    if st.session_state.last_check_in_date:
-        last = st.session_state.last_check_in_date
-        if isinstance(last, str):
-            last = date.fromisoformat(last)
-        if last == today:
-            pass  # already counted
-        elif last == today - timedelta(days=1):
-            st.session_state.streak += 1
-            st.session_state.last_check_in_date = str(today)
+    today_str = str(today)
+
+    if "streak_updated_date" not in st.session_state:
+        st.session_state.streak_updated_date = None
+
+    if st.session_state.streak_updated_date != today_str:
+        if st.session_state.last_check_in_date:
+            last = st.session_state.last_check_in_date
+            if isinstance(last, str):
+                last = date.fromisoformat(last)
+            if last == today - timedelta(days=1):
+                st.session_state.streak += 1
+            elif last != today:
+                st.session_state.streak = 1
+            # If last == today, streak stays the same (already counted)
         else:
             st.session_state.streak = 1
-            st.session_state.last_check_in_date = str(today)
-    else:
-        st.session_state.last_check_in_date = str(today)
-        st.session_state.streak = 1
+
+        st.session_state.last_check_in_date = today_str
+        st.session_state.streak_updated_date = today_str
 
     st.markdown(f"🔥 **{st.session_state.streak}-day streak**")
     st.markdown("---")
@@ -168,9 +173,13 @@ def safety_check(text):
 
 def detect_emotion():
     try:
+        if not st.session_state.chat_history:
+            return "Neutral", 0
         recent_text = "\n".join(
             msg for role, msg, _ in st.session_state.chat_history[-6:] if role == "user"
         )
+        if not recent_text.strip():
+            return "Neutral", 0
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": "Classify the user's emotional state into one of: Anxiety, Sadness, Anger, Burnout, Positive, Neutral. Respond with one word only."},
@@ -312,9 +321,9 @@ def get_quotable_quote():
 
 if page == "🏠 Home":
     st.title(f"🌿 Welcome back, {st.session_state.username}!")
-    
-    # Daily check-in prompt
+
     today_str = str(date.today())
+
     if not st.session_state.check_in_done_today or st.session_state.last_check_in_date != today_str:
         st.info(f"💙 **Daily Check-in** — How are you feeling today, {st.session_state.username}?")
         checkin_col1, checkin_col2 = st.columns([3, 1])
@@ -342,7 +351,6 @@ if page == "🏠 Home":
     col1, col2 = st.columns(2)
     
     with col1:
-        # Affirmation
         affirmation = get_daily_affirmation()
         st.markdown(f"""
         <div class="affirmation-box">
@@ -352,7 +360,6 @@ if page == "🏠 Home":
         """, unsafe_allow_html=True)
     
     with col2:
-        # Inspirational quote
         quote, author = get_quotable_quote()
         st.markdown(f"""
         <div class="quote-box">
@@ -363,7 +370,6 @@ if page == "🏠 Home":
         """, unsafe_allow_html=True)
     
     st.markdown("---")
-    # Stats row
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("🔥 Streak", f"{st.session_state.streak} days")
@@ -400,7 +406,6 @@ elif page == "💬 Chat":
                     st.session_state._suggested_prompt = p
                     st.rerun()
     
-    # Chat controls
     col1, col2 = st.columns([6, 1])
     with col2:
         if st.button("🗑️ Clear Chat"):
@@ -412,10 +417,12 @@ elif page == "💬 Chat":
         with st.chat_message(role):
             st.write(message)
             st.caption(f"🕐 {timestamp}")
-    
-    # Handle suggested prompt
-    initial_input = st.session_state.pop("_suggested_prompt", None)
-    
+ 
+    initial_input = None
+    if "_suggested_prompt" in st.session_state:
+        initial_input = st.session_state["_suggested_prompt"]
+        del st.session_state["_suggested_prompt"]
+
     user_input = st.chat_input("How are you feeling today?") or initial_input
 
     if user_input:
@@ -423,7 +430,7 @@ elif page == "💬 Chat":
             st.error("""
 🚨 **If you're in immediate danger, please reach out:**
 
-- 🇺🇸 Suicide & Crisis Lifeline
+- 🇺🇸 Suicide & Crisis Lifeline: **988** (call or text)
 - 🌍 Or contact local emergency services
 
 You are not alone. Help is available. 💙
@@ -456,7 +463,6 @@ elif page == "📊 Analytics":
     if not st.session_state.mood_scores:
         st.info("No mood data yet. Check in on the Home page or start chatting!")
     else:
-        # Summary metrics
         avg = sum(st.session_state.mood_scores) / len(st.session_state.mood_scores)
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -470,7 +476,6 @@ elif page == "📊 Analytics":
 
         st.markdown("---")
 
-        # Mood trend
         st.subheader("📉 Mood Trend Over Time")
         fig1, ax1 = plt.subplots(figsize=(10, 3))
         ax1.plot(st.session_state.mood_scores, marker='o', linewidth=2, color='#667eea', markersize=5)
@@ -488,7 +493,6 @@ elif page == "📊 Analytics":
         col1, col2 = st.columns(2)
         
         with col1:
-            # Emotion distribution pie
             st.subheader("🥧 Emotion Distribution")
             emotion_counts = {}
             for label in st.session_state.mood_labels:
@@ -500,7 +504,6 @@ elif page == "📊 Analytics":
             plt.close()
 
         with col2:
-            # Best/worst day of week
             st.subheader("📅 Day of Week Patterns")
             if st.session_state.mood_dates:
                 day_scores = {d: [] for d in ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]}
@@ -519,21 +522,21 @@ elif page == "📊 Analytics":
                     ds, vs = zip(*days_with_data)
                     bar_colors = ['#54a0ff' if v >= 0 else '#ff6b6b' for v in vs]
                     fig3, ax3 = plt.subplots(figsize=(5, 4))
-                    bars = ax3.bar(ds, vs, color=bar_colors)
+                    ax3.bar(ds, vs, color=bar_colors)
                     ax3.set_ylabel("Avg Mood")
                     ax3.set_ylim(-1.2, 1.2)
                     ax3.axhline(0, color='gray', linestyle='--', alpha=0.5)
                     ax3.grid(True, alpha=0.3, axis='y')
-                    if days_with_data:
-                        best_day = max(days_with_data, key=lambda x: x[1])
-                        worst_day = min(days_with_data, key=lambda x: x[1])
-                        ax3.set_title(f"Best: {best_day[0]} | Worst: {worst_day[0]}", fontsize=10)
+                    best_day = max(days_with_data, key=lambda x: x[1])
+                    worst_day = min(days_with_data, key=lambda x: x[1])
+                    ax3.set_title(f"Best: {best_day[0]} | Worst: {worst_day[0]}", fontsize=10)
                     st.pyplot(fig3)
                     plt.close()
+                else:
+                    st.info("Not enough data yet for day-of-week patterns.")
 
         st.markdown("---")
         
-        # Weekly summary
         st.subheader("📋 Weekly Mood Summary Report")
         if st.button("🤖 Generate AI Summary"):
             with st.spinner("Generating your personalized summary..."):
@@ -541,11 +544,12 @@ elif page == "📊 Analytics":
             st.info(summary)
 
         st.subheader("💡 AI Mood Insight")
-        with st.spinner("Generating insight..."):
-            insight = generate_mood_insight()
-        st.info(insight)
 
-        # Export PDF
+        if st.button("🤖 Generate Mood Insight"):
+            with st.spinner("Generating insight..."):
+                insight = generate_mood_insight()
+            st.info(insight)
+
         st.markdown("---")
         st.subheader("📄 Export Analytics")
         
@@ -578,22 +582,13 @@ elif page == "📊 Analytics":
 elif page == "📔 Journal":
     st.title("📔 Daily Journal")
     
-    # Writing streak
     today_str = str(date.today())
-    if st.session_state.last_journal_date:
-        last_j = st.session_state.last_journal_date
-        if last_j != today_str:
-            last_date = date.fromisoformat(last_j)
-            if last_date == date.today() - timedelta(days=1):
-                pass  # will increment on save
-            else:
-                st.session_state.writing_streak = 0
-    
+
+  
     col1, col2 = st.columns([3, 1])
     with col1:
         st.markdown(f"✍️ **Writing Streak:** {st.session_state.writing_streak} days")
     
-    # AI prompt suggestion
     with col2:
         if st.button("💡 Get a Prompt"):
             with st.spinner("Thinking..."):
@@ -601,7 +596,7 @@ elif page == "📔 Journal":
             st.session_state._journal_prompt = prompt
 
     if "_journal_prompt" in st.session_state:
-        st.info(f"✨ **Prompt:** {st.session_state._journal_prompt}")
+        st.info(f"✨ **Prompt:** {st.session_state['_journal_prompt']}")
     
     journal_text = st.text_area("Write your thoughts here...", height=200, 
                                  placeholder="Start writing freely — this is your safe space...")
@@ -623,21 +618,33 @@ elif page == "📔 Journal":
             
             # Update mood from journal sentiment
             st.session_state.mood_scores.append(s_score)
-            st.session_state.mood_labels.append(sentiment if sentiment in ["Positive","Negative"] else "Neutral")
+            st.session_state.mood_labels.append(sentiment if sentiment in ["Positive", "Negative"] else "Neutral")
             st.session_state.mood_dates.append(dt.strftime("%Y-%m-%d %H:%M"))
             
-            # Update writing streak
+            # Update writing streak only if this is the first entry today
             if st.session_state.last_journal_date != today_str:
-                st.session_state.writing_streak += 1
-            st.session_state.last_journal_date = today_str
+                last_j = st.session_state.last_journal_date
+                if last_j:
+                    try:
+                        last_j_date = date.fromisoformat(last_j)
+                        if last_j_date == date.today() - timedelta(days=1):
+                            st.session_state.writing_streak += 1
+                        else:
+                            st.session_state.writing_streak = 1
+                    except ValueError:
+                        st.session_state.writing_streak = 1
+                else:
+                    st.session_state.writing_streak = 1
+                st.session_state.last_journal_date = today_str
             
             st.success(f"✅ Entry saved! Sentiment detected: **{sentiment}** | Words: **{word_count}**")
-            st.session_state.pop("_journal_prompt", None)
+          
+            if "_journal_prompt" in st.session_state:
+                del st.session_state["_journal_prompt"]
             st.rerun()
         else:
             st.warning("Please write something before saving.")
 
-    # Search & filter
     st.markdown("---")
     if st.session_state.journal_entries:
         st.subheader("📚 Your Entries")
@@ -658,7 +665,6 @@ elif page == "📔 Journal":
                 st.write(entry["text"])
                 st.caption(f"Words: {entry.get('word_count', '—')}")
         
-        # Download
         full_text = "\n\n".join([f"[{e['date']}] ({e.get('sentiment','')})\n{e['text']}" for e in st.session_state.journal_entries])
         st.download_button("📥 Download All Entries", full_text, file_name="journal.txt")
 
@@ -723,7 +729,6 @@ elif page == "🧘 Wellness Tools":
     
     st.markdown("---")
     
-    # ---- GUIDED BREATHING ----
     if tool == "🫁 Guided Breathing":
         st.subheader("🫁 Guided Breathing Exercise")
         st.markdown("*This simple breathing exercise can help reduce anxiety and stress in just a few minutes.*")
@@ -744,20 +749,17 @@ elif page == "🧘 Wellness Tools":
                 for cycle in range(cycles):
                     status_placeholder.markdown(f"**Cycle {cycle+1} of {cycles}**")
                     
-                    # Inhale
                     for i in range(inhale_t):
                         phase_placeholder.markdown(f"### 🌬️ Inhale... ({inhale_t - i}s)")
                         progress_placeholder.progress((i + 1) / inhale_t)
                         time.sleep(1)
                     
-                    # Hold
                     if hold_t > 0:
                         for i in range(hold_t):
                             phase_placeholder.markdown(f"### ⏸️ Hold... ({hold_t - i}s)")
                             progress_placeholder.progress((i + 1) / hold_t)
                             time.sleep(1)
                     
-                    # Exhale
                     for i in range(exhale_t):
                         phase_placeholder.markdown(f"### 💨 Exhale... ({exhale_t - i}s)")
                         progress_placeholder.progress((i + 1) / exhale_t)
@@ -767,7 +769,6 @@ elif page == "🧘 Wellness Tools":
                 progress_placeholder.empty()
                 status_placeholder.markdown("*Notice how your body feels right now. 💙*")
     
-    # ---- 5-4-3-2-1 GROUNDING ----
     elif tool == "🌍 Grounding Technique (5-4-3-2-1)":
         st.subheader("🌍 5-4-3-2-1 Grounding Technique")
         st.markdown("""
@@ -801,7 +802,6 @@ elif page == "🧘 Wellness Tools":
         st.markdown("---")
         st.success("🌟 Well done. You are here. You are safe. Take one more deep breath. 💙")
     
-    # ---- BOX BREATHING ----
     elif tool == "📦 Box Breathing":
         st.subheader("📦 Box Breathing (4-4-4-4)")
         st.markdown("""
@@ -825,7 +825,6 @@ elif page == "🧘 Wellness Tools":
             progress_placeholder.empty()
             st.balloons()
     
-    # ---- AFFIRMATION ----
     elif tool == "✨ Daily Affirmation":
         st.subheader("✨ Daily Affirmation")
         
@@ -893,7 +892,6 @@ elif page == "ℹ About":
 
 st.markdown("""
 <script>
-// Request notification permission for daily reminders
 if ("Notification" in window && Notification.permission === "default") {
     setTimeout(() => {
         Notification.requestPermission().then(perm => {
