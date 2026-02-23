@@ -12,14 +12,12 @@ import random
 import requests
 from groq import Groq
 
-
 # PAGE CONFIG
 st.set_page_config(
     page_title="AI Mental Wellness Companion",
     page_icon="🧠",
     layout="wide"
 )
-
 
 # CUSTOM CSS
 st.markdown("""
@@ -37,11 +35,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # GROQ CLIENT
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=GROQ_API_KEY)
-
 
 # PERSISTENT STORAGE (JSON per user)
 DATA_DIR = "user_data"
@@ -52,7 +48,6 @@ def _user_path(username: str) -> str:
     safe = "".join(c for c in username if c.isalnum() or c in ("-", "_")).lower()
     return os.path.join(DATA_DIR, f"{safe}.json")
 
-
 PERSISTENT_KEYS = [
     "mood_scores", "mood_labels", "mood_dates",
     "chat_history", "journal_entries", "gratitude_entries",
@@ -62,7 +57,6 @@ PERSISTENT_KEYS = [
     "streak_updated_date", "show_crisis",
     "quote_of_day", "quote_author", "quote_date",
 ]
-
 
 PROFILE_DEFAULTS = {
     "mood_scores": [],
@@ -124,7 +118,6 @@ def flush():
     save_user_data(st.session_state.username)
     st.rerun()
 
-
 # GOOGLE OAUTH — LOGIN GATE
 if not st.user.is_logged_in:
     st.title("🧠 AI Mental Wellness Companion")
@@ -150,7 +143,6 @@ if not st.user.is_logged_in:
         st.markdown("<div style='text-align:center;font-size:5em;margin-top:40px'>🌿</div>",
                     unsafe_allow_html=True)
     st.stop()
-
 
 _google_name  = st.user.get("name", "Friend")
 _google_email = st.user.get("email", "unknown")
@@ -937,3 +929,4 @@ elif page == "ℹ About":
     > ⚠️ **Disclaimer:** This system is for supportive guidance only. It does **not** replace professional mental health care.
     > If you are in crisis, please contact your local emergency services.
     """)
+
