@@ -12,20 +12,16 @@ import random
 import requests
 from groq import Groq
 
-# ===============================
-# PAGE CONFIG
-# ===============================
 
+# PAGE CONFIG
 st.set_page_config(
     page_title="AI Mental Wellness Companion",
     page_icon="🧠",
     layout="wide"
 )
 
-# ===============================
-# CUSTOM CSS
-# ===============================
 
+# CUSTOM CSS
 st.markdown("""
 <style>
 .stApp { background-color: #f8f9fa; color: #212529; }
@@ -41,17 +37,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ===============================
-# GROQ CLIENT
-# ===============================
 
+# GROQ CLIENT
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 client = Groq(api_key=GROQ_API_KEY)
 
-# ===============================
-# PERSISTENT STORAGE (JSON per user)
-# ===============================
 
+# PERSISTENT STORAGE (JSON per user)
 DATA_DIR = "user_data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -60,7 +52,7 @@ def _user_path(username: str) -> str:
     safe = "".join(c for c in username if c.isalnum() or c in ("-", "_")).lower()
     return os.path.join(DATA_DIR, f"{safe}.json")
 
-# Keys that are persisted to disk
+
 PERSISTENT_KEYS = [
     "mood_scores", "mood_labels", "mood_dates",
     "chat_history", "journal_entries", "gratitude_entries",
@@ -71,7 +63,7 @@ PERSISTENT_KEYS = [
     "quote_of_day", "quote_author", "quote_date",
 ]
 
-# Defaults for a brand-new user profile
+
 PROFILE_DEFAULTS = {
     "mood_scores": [],
     "mood_labels": [],
@@ -94,17 +86,17 @@ PROFILE_DEFAULTS = {
 }
 
 def load_user_data(username: str) -> dict:
-    """Load a user's saved profile, or return fresh defaults."""
+    
     path = _user_path(username)
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Fill missing keys added in newer app versions
+           
             for k, v in PROFILE_DEFAULTS.items():
                 if k not in data:
                     data[k] = v
-            # Sanitize any dirty labels saved by older app versions (e.g. "Positive.")
+            
             _emotion_known = ["Anxiety", "Sadness", "Anger", "Burnout", "Positive", "Neutral"]
             _sentiment_known = ["Positive", "Negative", "Neutral"]
             data["mood_labels"] = [
@@ -120,7 +112,6 @@ def load_user_data(username: str) -> dict:
     return dict(PROFILE_DEFAULTS)
 
 def save_user_data(username: str):
-    """Write all persistent session-state keys to disk."""
     path = _user_path(username)
     payload = {k: st.session_state[k] for k in PERSISTENT_KEYS if k in st.session_state}
     try:
@@ -130,18 +121,11 @@ def save_user_data(username: str):
         st.warning(f"Could not save data: {e}")
 
 def flush():
-    """Save to disk then rerun — convenience wrapper after mutations."""
     save_user_data(st.session_state.username)
     st.rerun()
 
-# ===============================
-# GOOGLE OAUTH — LOGIN GATE
-# ===============================
-# Uses Streamlit's built-in st.login() / st.user / st.logout().
-# No extra library needed. Handles cookies + session automatically.
-# Persistent across refreshes — Google cookie survives browser restarts.
-# -------------------------------------------------------
 
+# GOOGLE OAUTH — LOGIN GATE
 if not st.user.is_logged_in:
     st.title("🧠 AI Mental Wellness Companion")
     st.markdown("---")
@@ -167,27 +151,20 @@ if not st.user.is_logged_in:
                     unsafe_allow_html=True)
     st.stop()
 
-# User is logged in — derive username from their Google profile
-# Use first name for display, email as unique key for data file
+
 _google_name  = st.user.get("name", "Friend")
 _google_email = st.user.get("email", "unknown")
-_display_name = _google_name.split()[0]  # first name only
+_display_name = _google_name.split()[0]
 
-# ===============================
 # SESSION STATE BOOTSTRAP
-# ===============================
-
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
 
-# username drives the JSON filename — use email so it's unique per Google account
 if "username" not in st.session_state:
     st.session_state.username = _google_email
 
-# ===============================
-# LOAD PERSISTENT DATA (once per session)
-# ===============================
 
+# LOAD PERSISTENT DATA (once per session)
 if not st.session_state.data_loaded:
     profile = load_user_data(st.session_state.username)
     for k, v in profile.items():
@@ -197,19 +174,15 @@ if not st.session_state.data_loaded:
         st.session_state.check_in_done_today = False
     st.session_state.data_loaded = True
 
-# Defined here so every page section can use them
 today = date.today()
 today_str = str(today)
 
-# ===============================
-# SIDEBAR
-# ===============================
 
+# SIDEBAR
 with st.sidebar:
     st.title(f"🧠 Hi, {_display_name}!")
     st.caption(f"📧 {_google_email}")
 
-    # Update streak exactly once per calendar day
     if st.session_state.get("streak_updated_date") != today_str:
         last_ci = st.session_state.last_check_in_date
         if last_ci:
@@ -219,7 +192,6 @@ with st.sidebar:
                     st.session_state.streak += 1
                 elif last_date != today:
                     st.session_state.streak = 1
-                # If last_date == today: already counted this day, no change
             except ValueError:
                 st.session_state.streak = 1
         else:
@@ -238,12 +210,9 @@ with st.sidebar:
     st.markdown("---")
     st.button("🚪 Log Out", on_click=st.logout)
 
-# ===============================
-# CRISIS DETECTION
-# ===============================
 
+# CRISIS DETECTION
 CRISIS_WORDS = [
-    # Direct suicidal ideation
     "suicide", "suicidal", "kill myself", "killing myself",
     "end my life", "take my life", "end it all",
     "i want to die", "i wanna die", "wanna die", "want to die",
@@ -251,13 +220,9 @@ CRISIS_WORDS = [
     "better off dead", "better off without me", "world without me",
     "no reason to live", "nothing to live for", "not worth living",
     "life is not worth living", "life isn't worth living",
-
-    # Self-harm
     "self harm", "self-harm", "hurt myself", "harm myself",
     "cut myself", "cutting myself", "burn myself", "burning myself",
     "injure myself", "punish myself", "hurt myself on purpose",
-
-    # Disappearing / giving up
     "want to disappear", "wish i could disappear", "disappear forever",
     "don't want to exist", "don't want to be here", "don't want to be alive",
     "wish i was never born", "wish i wasn't here", "wish i were dead",
@@ -265,15 +230,11 @@ CRISIS_WORDS = [
     "can't go on", "can't keep going", "can't do this anymore",
     "no point anymore", "no point in living", "no point going on",
     "give up on life", "giving up on life",
-
-    # Hopelessness / farewell signals
     "goodbye forever", "final goodbye", "last goodbye", "saying goodbye",
     "nobody would miss me", "no one would miss me", "no one cares if i die",
     "nobody cares if i'm gone", "everyone is better off without me",
     "i have a plan to", "i've made a plan", "i've decided to end",
     "planned my death", "planning to kill",
-
-    # Methods (intentionally vague to avoid instruction)
     "overdose on", "overdosing on", "take all my pills",
     "jump off", "hang myself", "hanging myself",
 ]
@@ -282,10 +243,7 @@ def safety_check(text):
     cleaned = re.sub(r"[^\w\s']", " ", text.lower())
     return any(w in cleaned for w in CRISIS_WORDS)
 
-# ===============================
 # GROQ HELPERS
-# ===============================
-
 def detect_emotion():
     if not st.session_state.chat_history:
         return "Neutral", 0
@@ -305,7 +263,6 @@ def detect_emotion():
         emotion = completion.choices[0].message.content.strip()
     except Exception:
         emotion = "Neutral"
-    # Normalize to a known label — guards against "Positive." or "positive" variants
     known = ["Anxiety", "Sadness", "Anger", "Burnout", "Positive", "Neutral"]
     emotion = next((k for k in known if k.lower() in emotion.lower()), "Neutral")
     score_map = {"Anxiety": -1, "Sadness": -1, "Anger": -1, "Burnout": -1, "Positive": 1, "Neutral": 0}
@@ -467,10 +424,8 @@ def get_quotable_quote():
     return q[0], q[1]
 
 
-# ===============================
-# HOME PAGE
-# ===============================
 
+# HOME PAGE
 if page == "🏠 Home":
     st.title(f"🌿 Welcome back, {_display_name}!")
 
@@ -523,10 +478,7 @@ if page == "🏠 Home":
         st.metric("🙏 Gratitude Logs", len(st.session_state.gratitude_entries))
 
 
-# ===============================
 # CHAT PAGE
-# ===============================
-
 elif page == "💬 Chat":
     st.title("💬 AI Mental Health Companion")
     st.warning("⚠️ This is not a licensed therapist. In crisis, contact emergency services.")
@@ -563,7 +515,6 @@ elif page == "💬 Chat":
         initial_input = st.session_state["_suggested_prompt"]
         del st.session_state["_suggested_prompt"]
 
-    # Persist crisis banner across reruns
     if st.session_state.get("show_crisis"):
         st.error("""
 🚨 **We noticed you may be going through something serious. Please reach out:**
@@ -582,9 +533,7 @@ You are not alone. Help is available right now. 💙
     if user_input:
         ts = datetime.now().strftime("%b %d, %H:%M")
         if safety_check(user_input):
-            # Save user message to chat history so it's visible
             st.session_state.chat_history.append(("user", user_input, ts))
-            # Add a compassionate assistant acknowledgement
             crisis_reply = (
                 "💙 I hear you, and I'm really glad you're talking to me. "
                 "What you're feeling matters deeply, and you don't have to face this alone. "
@@ -592,7 +541,6 @@ You are not alone. Help is available right now. 💙
                 "🇺🇸 Call or text **988** (Suicide & Crisis Lifeline) or contact your local emergency services."
             )
             st.session_state.chat_history.append(("assistant", crisis_reply, ts))
-            # Set persistent banner flag
             st.session_state["show_crisis"] = True
             flush()
         else:
@@ -613,10 +561,8 @@ You are not alone. Help is available right now. 💙
             flush()
 
 
-# ===============================
-# ANALYTICS PAGE
-# ===============================
 
+# ANALYTICS PAGE
 elif page == "📊 Analytics":
     st.title("📊 Emotional Analytics Dashboard")
 
@@ -728,10 +674,8 @@ elif page == "📊 Analytics":
                                file_name=f"wellness_report_{date.today()}.txt", mime="text/plain")
 
 
-# ===============================
-# JOURNAL PAGE
-# ===============================
 
+# JOURNAL PAGE
 elif page == "📔 Journal":
     st.title("📔 Daily Journal")
     today_str = str(date.today())
@@ -816,10 +760,8 @@ elif page == "📔 Journal":
         st.download_button("📥 Download All Entries", full_text, file_name="journal.txt")
 
 
-# ===============================
-# GRATITUDE PAGE
-# ===============================
 
+# GRATITUDE PAGE
 elif page == "🙏 Gratitude":
     st.title("🙏 Gratitude Log")
     st.markdown("*Research shows that noting 3 things you're grateful for daily boosts well-being.*")
@@ -858,11 +800,7 @@ elif page == "🙏 Gratitude":
                     if item.strip():
                         st.write(f"{i}. {item}")
 
-
-# ===============================
 # WELLNESS TOOLS PAGE
-# ===============================
-
 elif page == "🧘 Wellness Tools":
     st.title("🧘 Wellness Tools")
 
@@ -971,10 +909,8 @@ elif page == "🧘 Wellness Tools":
             st.success("Reflection saved to your journal! 🌟")
 
 
-# ===============================
-# ABOUT PAGE
-# ===============================
 
+# ABOUT PAGE
 elif page == "ℹ About":
     st.title("ℹ️ About This Project")
     st.markdown("""
@@ -1001,5 +937,3 @@ elif page == "ℹ About":
     > ⚠️ **Disclaimer:** This system is for supportive guidance only. It does **not** replace professional mental health care.
     > If you are in crisis, please contact your local emergency services.
     """)
-
-# End of app
